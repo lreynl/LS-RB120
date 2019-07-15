@@ -1,21 +1,23 @@
-class MyCar
+class Vehicle
   attr_accessor :color, :model, :speed, :car_on
-  attr_reader :year
+  attr_reader :year, :TYPE
+  @@inventory_size = 0
 
-  def self.what_am_i
-    "I'm just a car"
+  def self.inventory
+    puts "There are #{@@inventory_size} vehicles currently."
   end
-
-  def to_s
-    "This car is a #{color} #{year} #{model}."
-  end
-
+  
   def initialize(year, color, model)
+    @@inventory_size += 1
     @year = year
     @color = color
     @model = model
     @speed = 0
     @car_on = false
+  end
+
+  def to_s
+    "This is a #{color} #{year} #{model}."
   end
 
   def accelerate
@@ -51,7 +53,52 @@ class MyCar
     self.color = new_color
     puts "New color: #{self.color}!"
   end
+
+  def age
+    calc_age
+  end
+
+  private
+
+  def calc_age
+    current_year = Time.new.year
+    current_year - year
+  end  
+end  
+
+module Navigation
+  attr_accessor :nav_active
+  @@nav_active = false
+
+  def nav_on?
+    @@nav_active
+  end
+
+  def toggle_nav_system
+    @@nav_active = !@@nav_active
+  end
 end
+
+class MyCar < Vehicle
+  include Navigation
+  
+  TYPE = 'sedan'
+
+  def self.what_am_i
+    "I'm just a #{TYPE}"
+  end
+
+end
+
+class MyTruck < Vehicle
+  TYPE = 'pickup'
+
+  def self.what_am_i
+    "I'm just a #{TYPE}"
+  end
+
+end  
+  
 
 car = MyCar.new(2006, 'black', 'prius')
 puts car
@@ -72,3 +119,16 @@ puts car.color
 puts MyCar.what_am_i
 puts car
 puts MyCar.calculate_mpg(500, 10)
+
+truck = MyTruck.new(1959, 'green', 'Apache')
+puts truck
+puts MyTruck.what_am_i
+Vehicle.inventory
+p car.nav_on?
+car.toggle_nav_system
+p car.nav_on?
+p MyCar.ancestors
+p MyTruck.ancestors
+
+puts "car is #{car.age} years old"
+puts "truck is #{truck.age} years old"
