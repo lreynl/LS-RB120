@@ -1,3 +1,5 @@
+require 'io/console'
+
 module Prompt
   def prompt(msg)
     print "> #{msg}"
@@ -5,23 +7,27 @@ module Prompt
 end
 
 class Move
-  attr_reader :OPTIONS, :value
-  OPTIONS = %w(r p s) # l sp)
-
+  attr_reader :value
+=begin
   def initialize(value)
-    @value = value
+    if value == 'spock' || value == 'sp'
+      @value = 'sp'
+    else
+      @value = value[0].downcase
+    end
   end
+=end
 
   def scissors?
-    @value == 'scissors'
+    self.class.to_s.downcase == 'scissors'
   end
 
   def rock?
-    @value == 'rock'
+    self.class.to_s.downcase == 'rock'
   end
 
   def paper?
-    @value == 'paper'
+    self.class.to_s.downcase == 'paper'
   end
 
   def >(other_move)
@@ -37,20 +43,80 @@ class Move
   end
 
   def to_s
-    @value
+    self.value
   end
+end
+
+class Rock < Move
+
+end
+
+class Paper < Move
+
+end
+
+class Scissors < Move
+
+end
+
+class Lizard < Move
+
+end
+
+class Spock < Move
+
 end
 
 class Player
   include Prompt
-  attr_accessor :move
+  attr_accessor :move, :name
+  attr_reader :score, :match_wins
   KEY = { r: ['rock', '[r]ock'], p: ['paper', '[p]aper'],
           s: ['scissors', '[s]cissors'] } # , l: ['lizard', '[l]izard'],
   # sp: ['spock', '[sp]ock'] }
 
-  def valid_move_choice?(choice)
-    Move::OPTIONS.include?(choice)
+  def initialize
+    @score = 0
+    @match_wins = 0
+    @name = 'default'
   end
+
+  def valid_move_choice?(choice)
+    choice.downcase!
+    options_list = []
+    KEY.each_value { |val| options_list << val[0] }
+    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
+  end
+
+  def increment_score
+    self.score += 1
+  end
+
+  def increment_match_wins
+    self.match_wins += 1
+  end
+
+  def reset_score
+    self.score = 0
+  end
+
+  def move_type(move)
+    if    move == 'r'  || move == 'rock'
+      Rock.new
+    elsif move == 'p'  || move == 'paper'
+      Paper.new
+    elsif move == 's'  || move == 'scissors'
+      Scissors.new
+    elsif move == 'l'  || move == 'lizard'
+      Lizard.new
+    elsif move == 'sp' || move == 'spock'
+      Spock.new
+    end
+  end
+  
+  protected
+
+  attr_writer :score, :match_wins
 end
 
 class Human < Player
@@ -64,13 +130,16 @@ class Human < Player
       break choice if valid_move_choice?(choice)
       prompt("That wasn't an option!\n")
     end
-    self.move = Move.new(choice)
+    self.move = move_type(choice)#Move.new(choice)
   end
 end
 
 class Computer < Player
   def choose
-    self.move = Move.new(Move::OPTIONS.sample)
+    #self.move = Move.new(KEY.keys.sample.to_s)
+    move = move_type(KEY.keys.sample.to_s)
+    self.move = move#_type(KEY.keys.sample.to_s)
+    p move
   end
 end
 
@@ -100,14 +169,13 @@ class RPSgame
   end
 
   def display_winner
-    winner = decide_winner(human.move.value, computer.move.value)
-    display_results(winner)
+    display_results(decide_winner)
   end
 
-  def decide_winner(player, comp)
-    if player > comp
+  def decide_winner
+    if human.move > computer.move
       'player'
-    elsif player < comp
+    elsif human.move < computer.move
       'comp'
     else
       'tie'
@@ -115,8 +183,8 @@ class RPSgame
   end
 
   def display_results(winner)
-    prompt("#{@key[human.move.value.to_sym][0]} vs. " \
-           "#{@key[computer.move.value.to_sym][0]} ... ")
+    prompt("#{human.move.class.to_s.upcase} vs. " \
+           "#{computer.move.class.to_s.upcase} ... ")
     case winner
     when 'tie'
       print "TIE\n"
@@ -125,6 +193,28 @@ class RPSgame
     when 'comp'
       print "Computer Wins!\n"
     end
+  end
+
+  def increment_score(type)
+    winner = decide_winner
+    return nil if winner == 'tie'
+    if type == :round
+      winner == 'player' ? human.increment_score : computer.increment_score
+    elsif type == :match
+      winner == 'player' ? human.increment_match_wins :
+                           computer.increment_match_wins
+    end
+  end    
+
+  def show_final_score
+    prompt("Match score... \n")
+    prompt("#{human.name.upcase}: #{human.match_wins}. " \
+           "#{computer.name.upcase}: #{computer.match_wins}.\n")
+  end
+
+  def show_current_score
+    prompt("#{human.name.upcase}: #{human.score} " \
+           "#{computer.name.upcase}: #{computer.score}\n")
   end
 
   def again?
@@ -139,13 +229,49 @@ class RPSgame
     end
   end
 
-  def play
-    display_welcome_message
+  def match_ended?
+    human.score == @to_win || computer.score == @to_win
+  end
+
+  def press_any_key
+    prompt('press any key...')
+    STDIN.getch
+  end
+  
+  def clear_screen
+    system('clear') || system('cls')
+  end
+
+  def reset_scores
+    human.reset_score
+    computer.reset_score
+  end
+
+  def match_loop
     loop do
       human.choose
       computer.choose
       display_winner
+      increment_score(:round)
+      show_current_score      
+      if match_ended?
+        increment_score(:match)
+        break
+      end
+    end
+  end
+
+  def play
+    clear_screen
+    display_welcome_message
+    press_any_key
+    clear_screen
+    loop do
+      match_loop
+      show_final_score
       break unless again?
+      clear_screen
+      reset_scores
     end
     display_goodbye_message
   end
