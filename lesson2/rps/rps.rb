@@ -49,22 +49,26 @@ class Move
     scissors? || rock?
   end
 
+  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
   def >(other_move)
-    (rock? && other_move.lose_to_rock?) ||
-      (paper? && other_move.lose_to_paper?) ||
+    (rock? && other_move.lose_to_rock?)           ||
+      (paper?    && other_move.lose_to_paper?)    ||
       (scissors? && other_move.lose_to_scissors?) ||
-      (lizard? && other_move.lose_to_lizard?) ||
-      (spock? && other_move.lose_to_spock?)
+      (lizard?   && other_move.lose_to_lizard?)   ||
+      (spock?    && other_move.lose_to_spock?)
   end
 
   def <(other_move)
-    (lose_to_rock? && other_move.rock?) ||
-      (lose_to_paper? && other_move.paper?) ||
+    (lose_to_rock? && other_move.rock?)           ||
+      (lose_to_paper?    && other_move.paper?)    ||
       (lose_to_scissors? && other_move.scissors?) ||
-      (lose_to_lizard? && other_move.lizard?) ||
-      (lose_to_spock? && other_move.spock?)
+      (lose_to_lizard?   && other_move.lizard?)   ||
+      (lose_to_spock?    && other_move.spock?)
   end
-  
+
+  # rubocop:enable all
+
   def to_s
     self.class.to_s.downcase
   end
@@ -87,25 +91,21 @@ end
 
 class Player
   include Prompt
-  attr_accessor :move, :name
-  attr_reader :score, :match_wins, :move_history, :other_player_move_history
+
+  attr_accessor :move
+  attr_reader :name, :score, :match_wins, :move_history,
+              :other_player_move_history
+
   KEY = { r:  ['rock', '[r]ock'], p: ['paper', '[p]aper'],
           s:  ['scissors', '[s]cissors'], l: ['lizard', '[l]izard'],
-          sp: ['spock', '[sp]ock'] }
+          sp: ['spock', '[sp]ock'] }.freeze
 
   def initialize
     @score = 0
     @match_wins = 0
-    @name = 'default'
+    @name = ''
     @move_history = []
     @other_player_move_history = []
-  end
-
-  def valid_move_choice?(choice)
-    choice.downcase!
-    options_list = []
-    KEY.each_value { |val| options_list << val[0] }
-    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
   end
 
   def increment_score
@@ -120,38 +120,70 @@ class Player
     self.score = 0
   end
 
-  def move_type(move)
-    if    move == 'r'  || move == 'rock'
-      Rock.new
-    elsif move == 'p'  || move == 'paper'
-      Paper.new
-    elsif move == 's'  || move == 'scissors'
-      Scissors.new
-    elsif move == 'l'  || move == 'lizard'
-      Lizard.new
-    elsif move == 'sp' || move == 'spock'
-      Spock.new
-    end
+  def input_name
+    prompt("What's your name? ")
+    @name = gets.chomp
   end
 
   def append_move_history(move)
-    self.move_history << move
+    move_history << move
   end
 
   def append_others_history(move)
-    self.other_player_move_history << move
+    other_player_move_history << move
   end
 
   def display_move_history
-    puts self.move_history
+    puts move_history
   end
-  
+
   protected
 
-  attr_writer :score, :match_wins
+  attr_writer :score, :match_wins, :name
+
+  def rock_move?(move)
+    move == 'r'  || move == 'rock'
+  end
+
+  def paper_move?(move)
+    move == 'p'  || move == 'paper'
+  end
+
+  def scissors_move?(move)
+    move == 's'  || move == 'scissors'
+  end
+
+  def lizard_move?(move)
+    move == 'l'  || move == 'lizard'
+  end
+
+  def spock_move?(move)
+    move == 'sp' || move == 'spock'
+  end
+
+  def move_type(move)
+    if    rock_move?(move)
+      Rock.new
+    elsif paper_move?(move)
+      Paper.new
+    elsif scissors_move?(move)
+      Scissors.new
+    elsif lizard_move?(move)
+      Lizard.new
+    elsif spock_move?(move)
+      Spock.new
+    end
+  end
 end
 
 class Human < Player
+  def valid_move_choice?(choice)
+    choice.downcase!
+    options_list = []
+    KEY.each_value { |val| options_list << val[0] }
+    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
+  end
+
   def choose
     choice = ''
     loop do
@@ -167,34 +199,110 @@ class Human < Player
 end
 
 class Computer < Player
+  # HAL has skill 3 and tries to win as fast as possible
+  # R2D2 has skill 1 because he doesn't have hands
+  # Data is skill 0 because he tries to tie every time
+  #  in order to play indefinitely
+  # Johnny 5 is in between
+  COMPUTER_NAMES_SKILL = { 'hal' => 3, 'johnny 5' => 2,
+                           'r2d2' => 1, 'data' => 0 }
+
+  def initialize
+    super()
+    input_name
+  end
+
+  def choose
+    self.move = recommend_move
+  end
+
+  def input_name
+    set_computer_name_skill
+  end
+
+  protected
+
+  attr_accessor :skill
+
+  private
+
+  def set_computer_name_skill
+    comp_player = COMPUTER_NAMES_SKILL.keys.sample
+    p comp_player
+    @name = comp_player
+    @skill = COMPUTER_NAMES_SKILL[comp_player]
+  end
+
   def analyze_human_history
     move_count = Hash.new(0)
-    self.other_player_move_history.each { |move| move_count[move] += 1 }
+    other_player_move_history.each { |move| move_count[move] += 1 }
     sorted_moves = move_count.values.sort
     most_frequent_move = sorted_moves[-1]
     move_count = move_count.invert
-p move_count[most_frequent_move]
-
-    move_count[most_frequent_move]
+    move = move_count[most_frequent_move]
+    adjust_for_skill(move)
   end
-  
-  def recommend_move
-    if self.other_player_move_history.length <= 5
-      move_type(KEY.keys.sample.to_s)
-    else
-      move = analyze_human_history
-      case 
-      when move.lose_to_rock?     then Rock.new
-      when move.lose_to_paper?    then Paper.new
-      when move.lose_to_scissors? then Scissors.new
-      when move.lose_to_lizard?   then Lizard.new
-      when move.lose_to_spock?    then Spock.new
-      end
+
+  def skill_0_choose(move)
+    if move.rock?
+      Rock.new
+    elsif move.paper?
+      Paper.new
+    elsif move.scissors?
+      Scissors.new
+    elsif move.lizard?
+      Lizard.new
+    elsif move.spock?
+      Spock.new
     end
   end
-    
-  def choose
-    self.move = recommend_move
+
+  def skill_1_choose
+    move_type(KEY.keys.sample.to_s)
+  end
+
+  def skill_2_choose(move)
+    if [true, false].sample
+      skill_1_choose(move)
+    else
+      skill_3_choose(move)
+    end
+  end
+
+  def skill_3_choose(move)
+    if move.lose_to_rock?
+      Rock.new
+    elsif move.lose_to_paper?
+      Paper.new
+    elsif move.lose_to_scissors?
+      Scissors.new
+    elsif move.lose_to_lizard?
+      Lizard.new
+    elsif move.lose_to_spock?
+      Spock.new
+    end
+  end
+
+  def adjust_for_skill(move)
+    case skill
+    when 0
+      skill_0_choose(move)
+    when 1
+      skill_1_choose
+    when 2
+      skill_2_choose(move)
+    when 3
+      skill_3_choose(move)
+    end
+  end
+
+  def recommend_move
+    if other_player_move_history.length <= 3
+      skill_1_choose
+    else
+      move = analyze_human_history
+      self.move = move
+    end
   end
 end
 
@@ -245,30 +353,45 @@ class RPSgame
     end
   end
 
+  def increment_round_score(winner)
+    if winner == 'player'
+      human.increment_score
+    else
+      computer.increment_score
+    end
+  end
+
+  def increment_match_score(winner)
+    if winner == 'player'
+      human.increment_match_wins
+    else
+      computer.increment_match_wins
+    end
+  end
+
   def increment_score(type)
     winner = decide_winner
     return nil if winner == 'tie'
     if type == :round
-      winner == 'player' ? human.increment_score : computer.increment_score
+      increment_round_score(winner)
     elsif type == :match
-      winner == 'player' ? human.increment_match_wins :
-                           computer.increment_match_wins
+      increment_match_score(winner)
     end
-  end    
+  end
 
   def append_player_history
-    self.human.append_move_history(self.human.move)
-    self.human.append_others_history(self.computer.move)
-    self.computer.append_move_history(self.computer.move)
-    self.computer.append_others_history(self.human.move)
+    human.append_move_history(human.move)
+    human.append_others_history(computer.move)
+    computer.append_move_history(computer.move)
+    computer.append_others_history(human.move)
   end
 
   def display_player_history
-    puts "#{self.human.name}'s move history:"
-    self.human.display_move_history
-    puts "#{self.computer.name}'s move history:"
-    self.computer.display_move_history
-  end    
+    puts "#{human.name}'s move history:"
+    human.display_move_history
+    puts "#{computer.name}'s move history:"
+    computer.display_move_history
+  end
 
   def show_final_score
     prompt("Match score... \n")
@@ -301,7 +424,7 @@ class RPSgame
     prompt('press any key...')
     STDIN.getch
   end
-  
+
   def clear_screen
     system('clear') || system('cls')
   end
@@ -318,7 +441,7 @@ class RPSgame
       append_player_history
       display_winner
       increment_score(:round)
-      show_current_score      
+      show_current_score
       if match_ended?
         increment_score(:match)
         break
@@ -331,6 +454,7 @@ class RPSgame
     display_welcome_message
     press_any_key
     clear_screen
+    human.input_name
     loop do
       match_loop
       show_final_score
