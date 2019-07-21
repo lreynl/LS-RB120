@@ -137,8 +137,14 @@ class Player
     puts move_history
   end
 
+  def reset_history
+    @move_history = []
+    @other_player_move_history = []
+  end
+  
   protected
 
+  attr_accessor :move_history, :other_player_move_history
   attr_writer :score, :match_wins, :name
 
   def rock_move?(move)
@@ -228,18 +234,30 @@ class Computer < Player
 
   def set_computer_name_skill
     comp_player = COMPUTER_NAMES_SKILL.keys.sample
-    p comp_player
     @name = comp_player
     @skill = COMPUTER_NAMES_SKILL[comp_player]
   end
 
+  def string_to_move_obj(str)
+    case str
+    when 'rock'     then Rock.new
+    when 'paper'    then Paper.new
+    when 'scissors' then Scissors.new
+    when 'lizard'   then Lizard.new
+    when 'spock'    then Spock.new
+    end
+  end
+
   def analyze_human_history
     move_count = Hash.new(0)
-    other_player_move_history.each { |move| move_count[move] += 1 }
-    sorted_moves = move_count.values.sort
-    most_frequent_move = sorted_moves[-1]
-    move_count = move_count.invert
-    move = move_count[most_frequent_move]
+    # Every move object is different, so to make a
+    # hash with objects as keys they need to be
+    # converted to strings and back
+    other_player_move_history.each { |move| move_count[move.to_s] += 1 }
+    p move_count.values
+    most_frequent_move = move_count.values.max
+    move = move_count.key(most_frequent_move)
+    move = string_to_move_obj(move)
     adjust_for_skill(move)
   end
 
@@ -263,7 +281,7 @@ class Computer < Player
 
   def skill_2_choose(move)
     if [true, false].sample
-      skill_1_choose(move)
+      skill_1_choose
     else
       skill_3_choose(move)
     end
@@ -296,7 +314,7 @@ class Computer < Player
     end
   end
 
-  def recommend_move
+  def recommend_move  
     if other_player_move_history.length <= 3
       skill_1_choose
     else
@@ -320,6 +338,10 @@ class RPSgame
     prompt("🗿📄✂🦎🖖️ Rock, Paper, Scissors, Lizard, Spock Game 🗿📄✂🦎🖖️\n")
     prompt("First to #{@to_win} wins!\n")
     prompt("\n")
+  end
+
+  def display_opponent
+    prompt("Your opponent is #{computer.name.capitalize}.\n")
   end
 
   def display_goodbye_message
@@ -380,10 +402,14 @@ class RPSgame
   end
 
   def append_player_history
+   p human.move
     human.append_move_history(human.move)
+    computer.append_others_history(human.move)
+  end
+
+  def append_computer_history
     human.append_others_history(computer.move)
     computer.append_move_history(computer.move)
-    computer.append_others_history(human.move)
   end
 
   def display_player_history
@@ -434,11 +460,17 @@ class RPSgame
     computer.reset_score
   end
 
+  def reset_histories
+    human.reset_history
+    computer.reset_history
+  end
+
   def match_loop
     loop do
       human.choose
-      computer.choose
       append_player_history
+      computer.choose
+      append_computer_history
       display_winner
       increment_score(:round)
       show_current_score
@@ -450,22 +482,24 @@ class RPSgame
   end
 
   def play
-    clear_screen
     display_welcome_message
     press_any_key
     clear_screen
     human.input_name
+    display_opponent
     loop do
       match_loop
       show_final_score
       break unless again?
       clear_screen
       reset_scores
+      reset_histories
     end
     display_goodbye_message
     display_player_history
   end
 end
 
+clear_screen
 game = RPSgame.new
 game.play
