@@ -141,8 +141,8 @@ class Player
     @move_history = []
     @other_player_move_history = []
   end
-  
-  protected
+
+  private
 
   attr_accessor :move_history, :other_player_move_history
   attr_writer :score, :match_wins, :name
@@ -183,13 +183,6 @@ class Player
 end
 
 class Human < Player
-  def valid_move_choice?(choice)
-    choice.downcase!
-    options_list = []
-    KEY.each_value { |val| options_list << val[0] }
-    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
-  end
-
   def choose
     choice = ''
     loop do
@@ -202,16 +195,26 @@ class Human < Player
     end
     self.move = move_type(choice)
   end
+
+  private
+  
+  def valid_move_choice?(choice)
+    choice.downcase!
+    options_list = []
+    KEY.each_value { |val| options_list << val[0] }
+    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
+  end
 end
 
 class Computer < Player
   # HAL has skill 3 and tries to win as fast as possible
-  # R2D2 has skill 1 because he doesn't have hands
+  # R2D2 has skill 1 because he doesn't have hands or speak english
   # Data is skill 0 because he tries to tie every time
   #  in order to play indefinitely
   # Johnny 5 is in between
   COMPUTER_NAMES_SKILL = { 'hal' => 3, 'johnny 5' => 2,
                            'r2d2' => 1, 'data' => 0 }
+  TRACK_PLAYER_COUNT = 3
 
   def initialize
     super()
@@ -222,15 +225,13 @@ class Computer < Player
     self.move = recommend_move
   end
 
-  def input_name
-    set_computer_name_skill
-  end
-
-  protected
+  private
 
   attr_accessor :skill
 
-  private
+  def input_name
+    set_computer_name_skill
+  end
 
   def set_computer_name_skill
     comp_player = COMPUTER_NAMES_SKILL.keys.sample
@@ -254,7 +255,6 @@ class Computer < Player
     # hash with objects as keys they need to be
     # converted to strings and back
     other_player_move_history.each { |move| move_count[move.to_s] += 1 }
-    p move_count.values
     most_frequent_move = move_count.values.max
     move = move_count.key(most_frequent_move)
     move = string_to_move_obj(move)
@@ -314,8 +314,8 @@ class Computer < Player
     end
   end
 
-  def recommend_move  
-    if other_player_move_history.length <= 3
+  def recommend_move
+    if other_player_move_history.length <= TRACK_PLAYER_COUNT
       skill_1_choose
     else
       move = analyze_human_history
@@ -326,7 +326,6 @@ end
 
 class RPSgame
   include Prompt
-  attr_accessor :human, :computer
 
   def initialize
     @human = Human.new
@@ -334,10 +333,38 @@ class RPSgame
     @to_win = 5
   end
 
-  def display_welcome_message
-    prompt("🗿📄✂🦎🖖️ Rock, Paper, Scissors, Lizard, Spock Game 🗿📄✂🦎🖖️\n")
+  def play
+    display_title_screen
+    human.input_name
+    display_opponent
+    loop do
+      match_loop
+      show_final_score
+      break unless again?
+      clear_screen
+      reset_scores
+      reset_histories
+    end
+    display_goodbye_message
+    # display_player_history
+  end
+
+  private
+
+  attr_accessor :human, :computer
+
+  def clear_screen
+    system('clear') || system('cls')
+  end
+  
+  def display_title_screen
+    clear_screen
+    prompt("🗿📄✂🦎🖖️ Rock, Paper, Scissors, Lizard, Spock Game 🗿📄✂🦎🖖\n")
+    prompt("\n")
     prompt("First to #{@to_win} wins!\n")
     prompt("\n")
+    press_any_key
+    clear_screen
   end
 
   def display_opponent
@@ -345,7 +372,7 @@ class RPSgame
   end
 
   def display_goodbye_message
-    prompt("Thanks of playing!\n")
+    prompt("Thanks for playing!\n")
   end
 
   def display_winner
@@ -402,7 +429,6 @@ class RPSgame
   end
 
   def append_player_history
-   p human.move
     human.append_move_history(human.move)
     computer.append_others_history(human.move)
   end
@@ -420,9 +446,11 @@ class RPSgame
   end
 
   def show_final_score
+    prompt("\n")
     prompt("Match score... \n")
     prompt("#{human.name.upcase}: #{human.match_wins}. " \
            "#{computer.name.upcase}: #{computer.match_wins}.\n")
+    prompt("\n")
   end
 
   def show_current_score
@@ -451,10 +479,6 @@ class RPSgame
     STDIN.getch
   end
 
-  def clear_screen
-    system('clear') || system('cls')
-  end
-
   def reset_scores
     human.reset_score
     computer.reset_score
@@ -478,28 +502,11 @@ class RPSgame
         increment_score(:match)
         break
       end
-    end
-  end
-
-  def play
-    display_welcome_message
-    press_any_key
-    clear_screen
-    human.input_name
-    display_opponent
-    loop do
-      match_loop
-      show_final_score
-      break unless again?
+      press_any_key
       clear_screen
-      reset_scores
-      reset_histories
     end
-    display_goodbye_message
-    display_player_history
   end
 end
 
-clear_screen
 game = RPSgame.new
 game.play
