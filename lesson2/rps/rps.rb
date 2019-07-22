@@ -49,49 +49,42 @@ class Move
     scissors? || rock?
   end
 
-  # rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
-
-  def >(other_move)
-    (rock? && other_move.lose_to_rock?)           ||
-      (paper?    && other_move.lose_to_paper?)    ||
-      (scissors? && other_move.lose_to_scissors?) ||
-      (lizard?   && other_move.lose_to_lizard?)   ||
-      (spock?    && other_move.lose_to_spock?)
-  end
-
-  def <(other_move)
-    (lose_to_rock? && other_move.rock?)           ||
-      (lose_to_paper?    && other_move.paper?)    ||
-      (lose_to_scissors? && other_move.scissors?) ||
-      (lose_to_lizard?   && other_move.lizard?)   ||
-      (lose_to_spock?    && other_move.spock?)
-  end
-
-  # rubocop:enable all
-
   def to_s
     self.class.to_s.downcase
   end
 end
 
 class Rock < Move
+  def >(other_move)
+    other_move.scissors? || other_move.lizard?
+  end
 end
 
 class Paper < Move
+  def >(other_move)
+    other_move.rock? || other_move.spock?
+  end
 end
 
 class Scissors < Move
+  def >(other_move)
+    other_move.paper? || other_move.lizard?
+  end
 end
 
 class Lizard < Move
+  def >(other_move)
+    other_move.spock? || other_move.paper?
+  end
 end
 
 class Spock < Move
+  def >(other_move)
+    other_move.scissors? || other_move.rock?
+  end
 end
 
 class Player
-  include Prompt
-
   attr_accessor :move
   attr_reader :name, :score, :match_wins, :move_history,
               :other_player_move_history
@@ -121,8 +114,13 @@ class Player
   end
 
   def input_name
-    prompt("What's your name? ")
-    @name = gets.chomp
+    name = ''
+    loop do
+      prompt("What's your name? ")
+      name = gets.chomp
+      break unless name.empty?
+    end
+    @name = name
   end
 
   def append_move_history(move)
@@ -143,6 +141,8 @@ class Player
   end
 
   private
+
+  include Prompt
 
   attr_accessor :move_history, :other_player_move_history
   attr_writer :score, :match_wins, :name
@@ -197,7 +197,7 @@ class Human < Player
   end
 
   private
-  
+
   def valid_move_choice?(choice)
     choice.downcase!
     options_list = []
@@ -212,8 +212,11 @@ class Computer < Player
   # Data is skill 0 because he tries to tie every time
   #  in order to play indefinitely
   # Johnny 5 is in between
-  COMPUTER_NAMES_SKILL = { 'hal' => 3, 'johnny 5' => 2,
+  COMPUTER_NAMES_SKILL = { 'hal' => 3, 'johnny5' => 2,
                            'r2d2' => 1, 'data' => 0 }
+
+  # After how many human moves does the computer start
+  # to base its move on the human player's
   TRACK_PLAYER_COUNT = 3
 
   def initialize
@@ -249,6 +252,7 @@ class Computer < Player
     end
   end
 
+  # Gets a player's most frequently chosen move
   def analyze_human_history
     move_count = Hash.new(0)
     # Every move object is different, so to make a
@@ -325,8 +329,6 @@ class Computer < Player
 end
 
 class RPSgame
-  include Prompt
-
   def initialize
     @human = Human.new
     @computer = Computer.new
@@ -351,12 +353,13 @@ class RPSgame
 
   private
 
+  include Prompt
   attr_accessor :human, :computer
 
   def clear_screen
     system('clear') || system('cls')
   end
-  
+
   def display_title_screen
     clear_screen
     prompt("🗿📄✂🦎🖖️ Rock, Paper, Scissors, Lizard, Spock Game 🗿📄✂🦎🖖\n")
@@ -382,7 +385,7 @@ class RPSgame
   def decide_winner
     if human.move > computer.move
       'player'
-    elsif human.move < computer.move
+    elsif computer.move > human.move
       'comp'
     else
       'tie'
