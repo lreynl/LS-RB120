@@ -9,6 +9,10 @@ end
 class Move
   attr_reader :value
 
+  KEY = { r:  ['rock', '[r]ock'], p: ['paper', '[p]aper'],
+          s:  ['scissors', '[s]cissors'], l: ['lizard', '[l]izard'],
+          sp: ['spock', '[sp]ock'] }.freeze
+
   def scissors?
     self.class.to_s.downcase == 'scissors'
   end
@@ -49,6 +53,40 @@ class Move
     scissors? || rock?
   end
 
+  def self.rock_move?(move)
+    ['r', 'rock'].include?(move)
+  end
+
+  def self.paper_move?(move)
+    ['p', 'paper'].include?(move)
+  end
+
+  def self.scissors_move?(move)
+    ['s', 'scissors'].include?(move)
+  end
+
+  def self.lizard_move?(move)
+    ['l', 'lizard'].include?(move)
+  end
+
+  def self.spock_move?(move)
+    ['sp', 'spock'].include?(move)
+  end
+
+  def self.create_move(move)
+    if    rock_move?(move)
+      Rock.new
+    elsif paper_move?(move)
+      Paper.new
+    elsif scissors_move?(move)
+      Scissors.new
+    elsif lizard_move?(move)
+      Lizard.new
+    elsif spock_move?(move)
+      Spock.new
+    end
+  end
+
   def to_s
     self.class.to_s.downcase
   end
@@ -86,19 +124,12 @@ end
 
 class Player
   attr_accessor :move
-  attr_reader :name, :score, :match_wins, :move_history,
-              :other_player_move_history
-
-  KEY = { r:  ['rock', '[r]ock'], p: ['paper', '[p]aper'],
-          s:  ['scissors', '[s]cissors'], l: ['lizard', '[l]izard'],
-          sp: ['spock', '[sp]ock'] }.freeze
+  attr_reader :name, :score, :match_wins
 
   def initialize
     @score = 0
     @match_wins = 0
     @name = ''
-    @move_history = []
-    @other_player_move_history = []
   end
 
   def increment_score
@@ -127,59 +158,19 @@ class Player
     move_history << move
   end
 
-  def append_others_history(move)
-    other_player_move_history << move
-  end
-
   def display_move_history
     puts move_history
   end
 
   def reset_history
     @move_history = []
-    @other_player_move_history = []
   end
 
   private
 
   include Prompt
 
-  attr_accessor :move_history, :other_player_move_history
   attr_writer :score, :match_wins, :name
-
-  def rock_move?(move)
-    move == 'r'  || move == 'rock'
-  end
-
-  def paper_move?(move)
-    move == 'p'  || move == 'paper'
-  end
-
-  def scissors_move?(move)
-    move == 's'  || move == 'scissors'
-  end
-
-  def lizard_move?(move)
-    move == 'l'  || move == 'lizard'
-  end
-
-  def spock_move?(move)
-    move == 'sp' || move == 'spock'
-  end
-
-  def move_type(move)
-    if    rock_move?(move)
-      Rock.new
-    elsif paper_move?(move)
-      Paper.new
-    elsif scissors_move?(move)
-      Scissors.new
-    elsif lizard_move?(move)
-      Lizard.new
-    elsif spock_move?(move)
-      Spock.new
-    end
-  end
 end
 
 class Human < Player
@@ -187,13 +178,13 @@ class Human < Player
     choice = ''
     loop do
       options_list = ''
-      KEY.each_value { |val| options_list += val[1] + ' ' }
+      Move::KEY.each_value { |val| options_list += val[1] + ' ' }
       prompt("Choose #{options_list}: ")
       choice = gets.chomp.downcase
       break choice if valid_move_choice?(choice)
       prompt("That wasn't an option!\n")
     end
-    self.move = move_type(choice)
+    self.move = Move.create_move(choice)
   end
 
   private
@@ -201,8 +192,8 @@ class Human < Player
   def valid_move_choice?(choice)
     choice.downcase!
     options_list = []
-    KEY.each_value { |val| options_list << val[0] }
-    KEY.keys.include?(choice.to_sym) || options_list.include?(choice)
+    Move::KEY.each_value { |val| options_list << val[0] }
+    Move::KEY.key?(choice.to_sym) || options_list.include?(choice)
   end
 end
 
@@ -224,8 +215,8 @@ class Computer < Player
     input_name
   end
 
-  def choose
-    self.move = recommend_move
+  def choose(human_history)
+    self.move = recommend_move(human_history)
   end
 
   private
@@ -253,12 +244,12 @@ class Computer < Player
   end
 
   # Gets a player's most frequently chosen move
-  def analyze_human_history
+  def analyze_human_history(history)
     move_count = Hash.new(0)
     # Every move object is different, so to make a
     # hash with objects as keys they need to be
     # converted to strings and back
-    other_player_move_history.each { |move| move_count[move.to_s] += 1 }
+    history.each { |move| move_count[move.to_s] += 1 }
     most_frequent_move = move_count.values.max
     move = move_count.key(most_frequent_move)
     move = string_to_move_obj(move)
@@ -280,7 +271,7 @@ class Computer < Player
   end
 
   def skill_1_choose
-    move_type(KEY.keys.sample.to_s)
+    Move.create_move(Move::KEY.keys.sample.to_s)
   end
 
   def skill_2_choose(move)
@@ -318,11 +309,11 @@ class Computer < Player
     end
   end
 
-  def recommend_move
-    if other_player_move_history.length <= TRACK_PLAYER_COUNT
+  def recommend_move(history)
+    if history.length <= TRACK_PLAYER_COUNT
       skill_1_choose
     else
-      move = analyze_human_history
+      move = analyze_human_history(history)
       self.move = move
     end
   end
@@ -333,6 +324,8 @@ class RPSgame
     @human = Human.new
     @computer = Computer.new
     @to_win = 5
+    @human_history = []
+    @computer_history = []
   end
 
   def play
@@ -354,7 +347,7 @@ class RPSgame
   private
 
   include Prompt
-  attr_accessor :human, :computer
+  attr_accessor :human, :computer, :human_history, :computer_history
 
   def clear_screen
     system('clear') || system('cls')
@@ -432,20 +425,18 @@ class RPSgame
   end
 
   def append_player_history
-    human.append_move_history(human.move)
-    computer.append_others_history(human.move)
+    human_history << human.move
   end
 
   def append_computer_history
-    human.append_others_history(computer.move)
-    computer.append_move_history(computer.move)
+    computer_history << computer.move
   end
 
   def display_player_history
     puts "#{human.name}'s move history:"
-    human.display_move_history
+    puts human_history
     puts "#{computer.name}'s move history:"
-    computer.display_move_history
+    puts computer_history
   end
 
   def show_final_score
@@ -488,15 +479,15 @@ class RPSgame
   end
 
   def reset_histories
-    human.reset_history
-    computer.reset_history
+    self.human_history = []
+    self.computer_history = []
   end
 
   def match_loop
     loop do
       human.choose
       append_player_history
-      computer.choose
+      computer.choose(@human_history)
       append_computer_history
       display_winner
       increment_score(:round)
