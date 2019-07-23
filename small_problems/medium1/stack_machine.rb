@@ -14,7 +14,7 @@ class Minilang
         puts "Invalid operation: #{op}"
         break
       end
-      set_register(num) if op.class == Integer
+      set_register(op) if op.class == Integer
       push     if op == 'PUSH'
       add(op)  if op == 'ADD'
       subtract if op == 'SUB'
@@ -79,7 +79,6 @@ class Minilang
     if op == 'POP'
       if stack.empty?
         puts 'Empty stack!'
-        break
       else
         register = stack.pop
       end
