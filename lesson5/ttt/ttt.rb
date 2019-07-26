@@ -12,10 +12,12 @@
 class TTTgame
   # has a board with state
   # has two players
+  HUMAN_PIECE = 'X'
+  COMPUTER_PIECE = 'O'
   def initialize
     @board = Board.new
-    @human = Human.new
-    @computer = Computer.new
+    @human = Human.new(HUMAN_PIECE)
+    @computer = Computer.new(COMPUTER_PIECE)
   end
   # play loop
     #check for win or draw
@@ -24,10 +26,15 @@ class TTTgame
     display_title_screen
     loop do
       puts board
-      human.move
-      break if winner? || board_full?
-      computer.move
-      break if winner? || board_full?
+      human.choose_square(board)
+      board.set_square_at(human.move, human.piece)
+      #break if winner? || board_full?
+      computer.choose_square(board)
+      board.set_square_at(computer.move, computer.piece)
+      puts board
+      
+      #break if winner? || board_full?
+      
     end
     display_winner
     display_goodbye_message
@@ -35,7 +42,7 @@ class TTTgame
 
   def winner?
   # test for winner
-    true
+    #true
   end
 
   def board_full?
@@ -52,28 +59,46 @@ class TTTgame
   end
 
   def display_goodbye_message
-    puts "Now get to work!"
+    puts "Maybe later."
   end
 
   private
 
   attr_accessor :board
-  attr_reader :human, :computer
+  attr_accessor :human, :computer
 end
 
 class Board
+  BLANK_SQUARE = ' '
   def initialize
-    @board = [ [' ', ' ', ' '],
-               [' ', ' ', ' '],
-               [' ', ' ', ' '] ]
+    @board = {}
+    (1..9).each { |num| self.set_square_at(num, BLANK_SQUARE) }
   end
 
   def to_s
-    "#{board[0][0]}|#{board[0][1]}|#{board[0][2]}\n" +
-    "-+-+-\n"                                        +
-    "#{board[1][0]}|#{board[1][1]}|#{board[1][2]}\n" +
-    "-+-+\n"                                         +
-    "#{board[2][0]}|#{board[2][1]}|#{board[2][2]}\n"
+    "#{get_square_at(1)}|#{get_square_at(2)}|#{get_square_at(3)}\n" +
+    "-+-+-\n"                                                       +
+    "#{get_square_at(4)}|#{get_square_at(5)}|#{get_square_at(6)}\n" +
+    "-+-+-\n"                                                       +
+    "#{get_square_at(7)}|#{get_square_at(8)}|#{get_square_at(9)}\n"
+  end
+
+  def empty_squares
+    board.keys.select { |square| unmarked?(board[square]) }
+
+  end
+
+  def unmarked?(square)
+    square == BLANK_SQUARE
+  end
+
+  def get_square_at(square)
+    board[square]
+  end
+
+  def set_square_at(square, piece)
+    board[square] = piece
+    #p piece
   end
   
   private
@@ -83,16 +108,45 @@ class Board
 end
 
 class Player
-  # place piece on board
-  def move
-    puts "#{self.class.to_s} placed a piece"
+  attr_reader :move
+
+  def initialize(piece)
+    @move = nil
+    @piece = piece
   end
+
+  # place piece on board
 end
 
-class Human < Player
+class Human < Player  
+  def choose_square(board)
+    square = nil
+    loop do
+      print "Choose a square from #{format_empty_squares(board)}: "
+      square = gets.chomp.to_i
+      break if board.empty_squares.include?(square)
+      puts "Not a valid square!"
+    end
+    @move = square
+  end
+
+  def format_empty_squares(board)
+    board.empty_squares.join(', ')
+  end
+  
+    def piece
+      @piece
+    end
 end
 
-class Computer < Player
+class Computer < Player  
+  def choose_square(board)
+    @move = board.empty_squares.sample
+  end
+
+  def piece
+    @piece
+  end
 end
 
 class Piece
