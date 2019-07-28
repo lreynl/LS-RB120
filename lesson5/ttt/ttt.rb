@@ -1,5 +1,3 @@
-# TODO set custom player marker
-
 require 'io/console'
 
 module Prompt
@@ -18,20 +16,40 @@ class TTTgame
   HUMAN_PIECE = 'X'
   COMPUTER_PIECE = 'O'
   MATCH = 5
-  GOES_FIRST = :choice # HUMAN_PIECE or COMPUTER_PIECE
+  COMPUTER_NAMES = ['2007 Iphone', 'Blackberry', 'Game & Watch', 'Arduino',
+                    'Raspberry PI 1', 'StarTAC']
+  GOES_FIRST = :choice # or HUMAN_PIECE or COMPUTER_PIECE
 
   def initialize
-    @human_piece = HUMAN_PIECE
-    @computer_piece = COMPUTER_PIECE
     @board = Board.new
-    @human = Human.new(HUMAN_PIECE)
-    @computer = Computer.new(COMPUTER_PIECE)
-    display_title_screen
-    reset_current_player
-    # choose_player_marker
+    @human = Human.new
+    @computer = Computer.new
   end
 
   def play
+    intro
+    match_loop
+    display_goodbye_message
+  end
+
+  private
+
+  include Prompt
+
+  attr_accessor :board
+  attr_accessor :human, :computer
+
+  def intro
+    display_title_screen
+    press_any_key
+    assign_markers
+    assign_names
+    reset_current_player
+    display_opponent
+    press_any_key
+  end
+
+  def match_loop
     loop do
       round_loop
       show_board
@@ -42,15 +60,7 @@ class TTTgame
       break unless play_again?
       reset_game
     end
-    display_goodbye_message
   end
-
-  private
-
-  include Prompt
-
-  attr_accessor :board
-  attr_accessor :human, :computer
 
   def round_loop
     loop do
@@ -62,19 +72,46 @@ class TTTgame
     end
   end
 
+  def assign_markers
+    @human.piece = choose_player_marker || HUMAN_PIECE
+    @computer.piece = COMPUTER_PIECE
+  end
+
+  def assign_names
+    @human.name = player_name
+    @computer.name = COMPUTER_NAMES.sample
+  end
+
+  def display_opponent
+    prompt("Your opponent is #{@computer.name}.\n")
+  end
+
+  def player_name
+    name = ''
+    loop do
+      prompt("What's your name? ")
+      name = gets.chomp
+      break if !name.empty? && name.chars.none? do |char|
+        /[0-9]/ =~ char
+      end
+      prompt("That doesn't look right.\n")
+    end
+    @human.name = name
+  end
+
   def choose_player_marker
     choice = ''
     loop do
       prompt("Choose a character for your piece: ")
       choice = gets.chomp
-      if choice == @computer_piece
+      if choice == @computer.piece
         prompt("That one is taken :)\n")
         next
       end
       break if choice.length == 1
       prompt("Your piece marker should be 1 character long.\n")
     end
-    @human_piece = choice
+    choice
   end
 
   def tally_score
@@ -96,7 +133,7 @@ class TTTgame
   end
 
   def display_match_winner(board)
-    match_winner = if board.winner == @computer_piece
+    match_winner = if board.winner == @computer.piece
                      'Computer wins'
                    else
                      'You win'
@@ -112,7 +149,8 @@ class TTTgame
   end
 
   def display_scores
-    prompt("Score: You, #{human.score} - Computer, #{computer.score}\n")
+    prompt("Score: You, #{human.score} - " \
+           "#{@computer.name}, #{computer.score}\n")
   end
 
   def current_player_move
@@ -129,9 +167,9 @@ class TTTgame
   end
 
   def reset_current_player
-    @current_player = if GOES_FIRST == @human_piece
+    @current_player = if GOES_FIRST == @human.piece
                         @human
-                      elsif GOES_FIRST == @computer_piece
+                      elsif GOES_FIRST == @computer.piece
                         @computer
                       else
                         choose_player
@@ -144,20 +182,20 @@ class TTTgame
       prompt("Do want to go first? (y/n) ")
       choice = gets.chomp.downcase
       break if %w(y n).include?(choice)
-      prompt("That wasn't an option!")
+      prompt("That wasn't an option!\n")
     end
     choice == 'y' ? @human : @computer
   end
 
   def show_board
     clear_screen
-    prompt("You're #{HUMAN_PIECE} - Computer is #{@computer_piece}\n")
+    prompt("You're #{@human.piece} - Computer is #{@computer.piece}\n")
     board.draw
   end
 
   def display_winner
-    prompt("You won!\n") if board.winner == @human_piece
-    prompt("Computer won!\n") if board.winner == @computer_piece
+    prompt("You won!\n") if board.winner == @human.piece
+    prompt("Computer won!\n") if board.winner == @computer.piece
     prompt("It was a tie!\n") if board.winner.nil?
   end
 
@@ -166,7 +204,6 @@ class TTTgame
     prompt("Ready, set, tic tac toe\n")
     prompt("\n")
     prompt("First to #{MATCH} wins\n")
-    press_any_key
   end
 
   def display_goodbye_message
@@ -281,12 +318,12 @@ class Board
 end
 
 class Player
-  attr_reader :move, :piece, :score
+  attr_reader :move, :score
+  attr_accessor :piece, :name
 
-  def initialize(piece)
-    @move = nil
-    @piece = piece
+  def initialize
     reset_score
+    @score = 0
   end
 
   def human?
