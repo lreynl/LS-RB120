@@ -1,102 +1,110 @@
+class MiniLangError < StandardError
+end
+
+class InvalidOpError < MiniLangError
+end
+
+class StackEmptyError < MiniLangError
+end
+
 class Minilang
+  VALID_OPS = %w(PUSH POP PRINT ADD SUB MULT DIV MOD).freeze
+
   def initialize(program)
     @program = program
     @register = 0
     @stack = []
   end
 
-  def machine(ops)
-    op_list = numbers_to_ints(ops.split)
-#    return puts 'invalid input' unless valid?(op_list)
-    until op_list.empty?
-      op = op_list.shift
-      if !valid?(op)
-        puts "Invalid operation: #{op}"
-        break
-      end
-      set_register(op) if op.class == Integer
-      push     if op == 'PUSH'
-      add(op)  if op == 'ADD'
-      subtract if op == 'SUB'
-      multiply if op == 'MULT'
-      divide   if op == 'DIV'
-      modulo   if op == 'MOD'
-      printout if op == 'PRINT'
-      pop      if op == 'POP'
+####  start here
+  def eval(arg1, arg2=nil)
+    if arg2
+      @program = format(@program, arg1)
+    else
+      @program = format(@program, {arg1, arg2})
     end
-  end
-
-  def eval
-    machine(program)
+    machine(@program)
   end
 
   private
 
-  attr_accessor :register, :stack
-  attr_reader :program
+  def machine(ops)
+    op_list = numbers_to_ints(ops.split)
+    begin
+      until op_list.empty?
+        op = op_list.shift
+        unless valid?(op)
+          raise InvalidOpError, 'Error: invalid operation!'
+        end
+        if op.class == Integer
+          write_register(op)
+        else
+          send op.downcase.to_sym
+        end
+      end
+    rescue ZeroDivisionError
+      puts 'Error: divison by 0!'
+    rescue MiniLangError => e
+      puts e.message
+    end
+  end
 
-  def set_register(num)
-    register = num
+  def write_register(num)
+    @register = num
   end
 
   def push
-    stack.push(register)
+    @stack.push(@register)
   end
 
-  def add(op)
-    register += stack.pop
+  def add
+    stack_empty?
+    @register += @stack.pop
   end
 
-  def subtract
-    register -= stack.pop
+  def sub
+    stack_empty?
+    @register -= @stack.pop
   end
 
-  def multiply
-    register *= stack.pop
+  def mult
+    stack_empty?
+    @register *= @stack.pop
   end
 
-  def divide
-    begin
-      register /= stack.pop
-    rescue
-      puts 'Error: division by 0!'
-    end
+  def div
+    stack_empty?
+    @register /= @stack.pop
   end
 
-  def modulo
-    begin
-      register %= stack.pop
-    rescue
-      puts 'Error: division by 0!'
-    end
+  def mod
+    stack_empty?
+    @register %= @stack.pop
   end
 
-  def printout
-    puts register
+  def print
+    puts @register
   end
 
   def pop
-    if op == 'POP'
-      if stack.empty?
-        puts 'Empty stack!'
-      else
-        register = stack.pop
-      end
-    end
+    stack_empty?
+    @register = @stack.pop
   end
-    
+
   def numbers_to_ints(op_list)
     op_list.map { |op| op.to_i.to_s == op ? op.to_i : op }
   end
-  
+
   def valid?(op)
-    valid_ops = %w(PUSH POP PRINT ADD SUB MULT DIV MOD)
-    valid_ops.include?(op) || op.class == Integer
+    VALID_OPS.include?(op) || op.class == Integer
+  end
+
+  def stack_empty?
+    raise StackEmptyError, 'Error: empty stack!' if @stack.empty?
   end
 end
 
-
-
+=begin
 Minilang.new('PRINT').eval
 # 0
 
@@ -129,3 +137,17 @@ Minilang.new('-3 PUSH 5 SUB PRINT').eval
 
 Minilang.new('6 PUSH').eval
 # (nothing printed; no PRINT commands)
+
+Minilang.new('0 PUSH 5 DIV PUSH PRINT').eval
+=end
+
+CENTIGRADE_TO_FAHRENHEIT = '5 PUSH %<degrees_c>d PUSH 9 MULT DIV PUSH 32 ADD PRINT'
+minilang = Minilang.new(CENTIGRADE_TO_FAHRENHEIT)
+minilang.eval(degrees_c: 0)
+minilang.eval(degrees_c: 25)
+minilang.eval(degrees_c: -40)
+minilang.eval(degrees_c: 100)
+
+AREA_OF_SQUARE = '%<side_1>d PUSH %<side_2>d MULT PRINT'
+minilang = Minilang.new(AREA_OF_SQUARE)
+minilang.eval(side_1: 5, side_2: 5)
