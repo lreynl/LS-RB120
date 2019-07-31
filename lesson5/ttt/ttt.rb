@@ -16,8 +16,6 @@ class TTTgame
   HUMAN_PIECE = 'X'
   COMPUTER_PIECE = 'O'
   MATCH = 5
-  COMPUTER_NAMES = ['2007 Iphone', 'Blackberry', 'Game & Watch', 'Arduino',
-                    'Raspberry PI 1', 'StarTAC']
   GOES_FIRST = :choice # or HUMAN_PIECE or COMPUTER_PIECE
 
   def initialize
@@ -36,8 +34,7 @@ class TTTgame
 
   include Prompt
 
-  attr_accessor :board
-  attr_accessor :human, :computer
+  attr_accessor :human, :computer, :board, :current_player
 
   def intro
     display_title_screen
@@ -73,45 +70,28 @@ class TTTgame
   end
 
   def assign_markers
-    @human.piece = choose_player_marker || HUMAN_PIECE
-    @computer.piece = COMPUTER_PIECE
+    human.choose_own_piece(computer.piece)
+    computer.choose_own_piece
   end
 
   def assign_names
-    @human.name = player_name
-    @computer.name = COMPUTER_NAMES.sample
+    human.name = human.player_name
+    computer.name = Computer::COMPUTER_NAMES.sample
+  end
+
+  def choose_player
+    choice = ''
+    loop do
+      prompt("Do want to go first? (y/n) ")
+      choice = gets.chomp.downcase
+      break if %w(y n).include?(choice)
+      prompt("That wasn't an option!\n")
+    end
+    choice == 'y' ? @human : @computer
   end
 
   def display_opponent
     prompt("Your opponent is #{@computer.name}.\n")
-  end
-
-  def player_name
-    name = ''
-    loop do
-      prompt("What's your name? ")
-      name = gets.chomp
-      break if !name.empty? && name.chars.none? do |char|
-        /[0-9]/ =~ char
-      end
-      prompt("That doesn't look right.\n")
-    end
-    @human.name = name
-  end
-
-  def choose_player_marker
-    choice = ''
-    loop do
-      prompt("Choose a character for your piece: ")
-      choice = gets.chomp
-      if choice == @computer.piece
-        prompt("That one is taken :)\n")
-        next
-      end
-      break if choice.length == 1
-      prompt("Your piece marker should be 1 character long.\n")
-    end
-    choice
   end
 
   def tally_score
@@ -167,24 +147,13 @@ class TTTgame
   end
 
   def reset_current_player
-    @current_player = if GOES_FIRST == @human.piece
+    @current_player = if GOES_FIRST == human.piece
                         @human
-                      elsif GOES_FIRST == @computer.piece
+                      elsif GOES_FIRST == computer.piece
                         @computer
                       else
                         choose_player
                       end
-  end
-
-  def choose_player
-    choice = ''
-    loop do
-      prompt("Do want to go first? (y/n) ")
-      choice = gets.chomp.downcase
-      break if %w(y n).include?(choice)
-      prompt("That wasn't an option!\n")
-    end
-    choice == 'y' ? @human : @computer
   end
 
   def show_board
@@ -341,6 +310,38 @@ end
 
 class Human < Player
   include Prompt
+  
+  def choose_own_piece(computer_piece)
+    self.piece = choose_player_marker(computer_piece) || HUMAN_PIECE
+  end
+
+  def choose_player_marker(computer_piece)
+    choice = ''
+    loop do
+      prompt("Choose a character for your piece: ")
+      choice = gets.chomp
+      if choice == computer_piece
+        prompt("That one is taken :)\n")
+        next
+      end
+      break if choice.length == 1
+      prompt("Your piece marker should be 1 character long.\n")
+    end
+    choice
+  end
+
+  def player_name
+    name = ''
+    loop do
+      prompt("What's your name? ")
+      name = gets.chomp
+      break if !name.empty? && name.chars.none? do |char|
+        /[0-9]/ =~ char
+      end
+      prompt("That doesn't look right.\n")
+    end
+    name
+  end
 
   def choose_square(board, _, _)
     square = nil
@@ -355,19 +356,26 @@ class Human < Player
 end
 
 class Computer < Player
+  COMPUTER_NAMES = ['2007 Iphone', 'Blackberry', 'Game & Watch', 'Arduino',
+                    'Raspberry PI 1', 'StarTAC']
+
   def choose_square(board, human_piece, computer_piece)
-    square = complete_line(board, computer_piece)
-    square = complete_line(board, human_piece) if square.nil?
+    square = at_risk_square(board, computer_piece)
+    square = at_risk_square(board, human_piece) if square.nil?
     square = 5 if board.empty_squares.include?(5)
     square = board.empty_squares.sample if square.nil?
     @move = square
+  end
+
+  def choose_own_piece
+    self.piece = TTTgame::COMPUTER_PIECE
   end
 
   private
 
   include WinsData
 
-  def complete_line(board, piece)
+  def at_risk_square(board, piece)
     WINS.each do |line|
       line_pieces = line.map { |square| board.board[square] }
       if line_pieces.count(piece) == 2 &&
