@@ -70,8 +70,8 @@ class TTTgame
   end
 
   def assign_names
-    human.name = human.player_name
-    computer.name = Computer::COMPUTER_NAMES.sample
+    human.player_name
+    computer.player_name
   end
 
   def choose_player
@@ -86,7 +86,7 @@ class TTTgame
   end
 
   def display_opponent
-    prompt("Your opponent is #{@computer.name}.\n")
+    prompt("Your opponent is #{computer.name}.\n")
   end
 
   def tally_score
@@ -309,6 +309,19 @@ class Player
   def reset_score
     @score = 0
   end
+
+  def player_name
+    name = ''
+    loop do
+      prompt("What's your name? ")
+      name = gets.chomp
+      break if !name.empty? && name.chars.none? do |char|
+        /[0-9]/ =~ char
+      end
+      prompt("That doesn't look right.\n")
+    end
+    self.name = name
+  end
 end
 
 class Human < Player
@@ -331,19 +344,6 @@ class Human < Player
       prompt("Your piece marker should be 1 character long.\n")
     end
     choice
-  end
-
-  def player_name
-    name = ''
-    loop do
-      prompt("What's your name? ")
-      name = gets.chomp
-      break if !name.empty? && name.chars.none? do |char|
-        /[0-9]/ =~ char
-      end
-      prompt("That doesn't look right.\n")
-    end
-    name
   end
 
   def choose_square(board, _, _)
@@ -374,6 +374,10 @@ class Computer < Player
     self.piece = TTTgame::COMPUTER_PIECE
   end
 
+  def player_name
+    self.name = COMPUTER_NAMES.sample
+  end
+  
   private
 
   def at_risk_square(board, piece)
