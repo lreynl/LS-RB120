@@ -6,12 +6,6 @@ module Prompt
   end
 end
 
-module WinsData
-  WINS = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] +
-         [[1, 4, 7], [2, 5, 8], [3, 6, 9]] +
-         [[1, 5, 9], [3, 5, 7]].freeze
-end
-
 class TTTgame
   HUMAN_PIECE = 'X'
   COMPUTER_PIECE = 'O'
@@ -22,6 +16,7 @@ class TTTgame
     @board = Board.new
     @human = Human.new
     @computer = Computer.new
+    @current_player = nil
   end
 
   def play
@@ -34,7 +29,7 @@ class TTTgame
 
   include Prompt
 
-  attr_accessor :human, :computer, :board, :current_player
+  attr_accessor :human, :computer, :board
 
   def intro
     display_title_screen
@@ -124,8 +119,8 @@ class TTTgame
   def reset_game
     board.reset
     reset_current_player
-    @human.reset_score if @human.score >= MATCH
-    @computer.reset_score if @computer.score >= MATCH
+    human.reset_score if human.score >= MATCH
+    computer.reset_score if computer.score >= MATCH
   end
 
   def display_scores
@@ -134,7 +129,7 @@ class TTTgame
   end
 
   def current_player_move
-    @current_player.choose_square(board, @human.piece, @computer.piece)
+    @current_player.choose_square(board, human.piece, computer.piece)
     board.set_square_at(@current_player.move, @current_player.piece)
   end
 
@@ -191,6 +186,10 @@ class TTTgame
 end
 
 class Board
+  WINS = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] +
+         [[1, 4, 7], [2, 5, 8], [3, 6, 9]] +
+         [[1, 5, 9], [3, 5, 7]].freeze
+
   attr_reader :winner, :board
 
   BLANK_SQUARE = ' '
@@ -232,8 +231,6 @@ class Board
 
   private
 
-  include WinsData
-
   attr_writer :board
   attr_writer :winner
 
@@ -263,11 +260,17 @@ class Board
   end
 
   def build_board
-    "#{board[1]}|#{board[2]}|#{board[3]}\n" \
-    "-+-+-\n"                               \
-    "#{board[4]}|#{board[5]}|#{board[6]}\n" \
-    "-+-+-\n"                               \
-    "#{board[7]}|#{board[8]}|#{board[9]}"
+    "   |   |   \n"                               \
+    " #{board[1]} | #{board[2]} | #{board[3]} \n" \
+    "   |   |   \n"                               \
+    "---+---+---\n"                               \
+    "   |   |   \n"                               \
+    " #{board[4]} | #{board[5]} | #{board[6]} \n" \
+    "   |   |   \n"                               \
+    "---+---+---\n"                               \
+    "   |   |   \n"                               \
+    " #{board[7]} | #{board[8]} | #{board[9]} \n" \
+    "   |   |   \n"
   end
 
   def format_empty_squares_list(empty, separator = ',', andor = 'or')
@@ -310,7 +313,7 @@ end
 
 class Human < Player
   include Prompt
-  
+
   def choose_own_piece(computer_piece)
     self.piece = choose_player_marker(computer_piece) || HUMAN_PIECE
   end
@@ -373,10 +376,8 @@ class Computer < Player
 
   private
 
-  include WinsData
-
   def at_risk_square(board, piece)
-    WINS.each do |line|
+    Board::WINS.each do |line|
       line_pieces = line.map { |square| board.board[square] }
       if line_pieces.count(piece) == 2 &&
          line_pieces.include?(Board::BLANK_SQUARE)
