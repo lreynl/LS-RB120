@@ -20,14 +20,25 @@ class TwentyOneGame
   MAX_SCORE = 21
 
   def initialize
-    @match_score = nil
     @deck = nil
     @player = nil
     @dealer = nil
   end
 
+  def play
+    title
+    loop do
+      reset_game
+      round_loop
+      break unless match_winner?
+      final_match_score
+      break unless @dealer.continue?(:match)
+    end
+  end
+
+  private
+
   def reset_game
-    init_match_score
     @deck = Deck.new
     @player = Player.new
     @dealer = Dealer.new
@@ -86,18 +97,6 @@ class TwentyOneGame
     end
   end
 
-  def play
-    title
-    loop do
-      reset_game
-      init_match_score
-      round_loop
-      break unless match_winner?
-      final_match_score
-      break unless @dealer.continue?(:match)
-    end
-  end
-
   def title
     clear
     prompt("♤ ♡ ♧ ♢  21 Game ♤ ♡ ♧ ♢ \n\n")
@@ -113,10 +112,6 @@ class TwentyOneGame
     @player.display_cards
   end
 
-  def init_match_score
-    @match_score = { player: 0, dealer: 0 }
-  end
-
   def round_score
     if @player.hand.score > MAX_SCORE
       :p_bust
@@ -126,7 +121,6 @@ class TwentyOneGame
       :dealer
     elsif @dealer.hand.score < @player.hand.score
       :player
-    # elsif @player.hand.score == @dealer.hand.score
     else
       :tie
     end
