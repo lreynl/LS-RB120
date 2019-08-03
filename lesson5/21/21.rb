@@ -51,18 +51,18 @@ class TwentyOneGame
   end
 
   def match_winner?
-    @player.match_points == WINS_FOR_MATCH ||
-      @dealer.match_points == WINS_FOR_MATCH
+    @player.points == WINS_FOR_MATCH ||
+      @dealer.points == WINS_FOR_MATCH
   end
 
   def display_match_score
-    prompt("Match total: Player #{@player.match_points}, " \
-           "Dealer #{@dealer.match_points}\n\n")
+    prompt("Match total: Player #{@player.points}, " \
+           "Dealer #{@dealer.points}\n\n")
   end
 
   def final_match_score
-    prompt("Final match score: Player, #{@player.match_points}, " \
-           "Dealer #{@dealer.match_points}\n\n")
+    prompt("Final match score: Player, #{@player.points}, " \
+           "Dealer #{@dealer.points}\n\n")
   end
 
   def deal
@@ -80,7 +80,7 @@ class TwentyOneGame
   def analyze_results
     result = round_score
     @dealer.check_perfect_score(@player)
-    inc_match_points(result)
+    inc_points(result)
     @dealer.results_message(result)
     @dealer.display_round_score(@player)
   end
@@ -126,9 +126,9 @@ class TwentyOneGame
     end
   end
 
-  def inc_match_points(winner)
-    @player.increment_match_points if winner == :player || winner == :d_bust
-    @dealer.increment_match_points if winner == :dealer || winner == :p_bust
+  def inc_points(winner)
+    @player.increment_points if winner == :player || winner == :d_bust
+    @dealer.increment_points if winner == :dealer || winner == :p_bust
   end
 end
 
@@ -168,6 +168,30 @@ class Hand
     @score = 0
     @ace_eleven = false
   end
+
+  def score_ace!
+    if @score <= 10
+      @score += 11
+      @ace_eleven = true
+    else
+      @score += 1
+    end
+  end
+
+  def rescore_ace!
+    return unless @ace_eleven && @score > TwentyOneGame::MAX_SCORE
+    @score -= 10
+    @ace_eleven = false
+  end
+
+  def update_score!(card)
+    if card.chop == 'A'
+      score_ace!
+    else
+      @score += Deck::VALUES[card.chop]
+    end
+    rescore_ace!
+  end
 end
 
 class Participant
@@ -177,11 +201,11 @@ class Participant
   VALID_HIT_STAY = ['h', 'hit', 's', 'stay']
   VALID_YES_NO = ['y', 'yes', 'n', 'no']
 
-  attr_reader :hand, :match_points
+  attr_reader :hand, :points
 
   def initialize
     @hand = Hand.new
-    @match_points = 0
+    @points = 0
   end
 
   def deal(deck, size = HAND_SIZE)
@@ -201,8 +225,8 @@ class Participant
 
   def hit_me!(deck)
     card = draw!(deck)
-    hand.cards << card
-    update_score!(hand, card)
+    @hand.cards << card
+    hand.update_score!(card)
   end
 
   def user_hit_stay
@@ -211,33 +235,10 @@ class Participant
       prompt("Hit or stay (h/s)? ")
       hit_stay = gets.chomp
       break if VALID_HIT_STAY.include?(hit_stay)
+      next if hit_stay.empty?
       prompt("Not a valid choice!\n")
     end
     hit_stay
-  end
-
-  def score_ace!(hand)
-    if hand.score <= 10
-      hand.score += 11
-      hand.ace_eleven = true
-    else
-      hand.score += 1
-    end
-  end
-
-  def rescore_ace!(hand)
-    return unless hand.ace_eleven && hand.score > TwentyOneGame::MAX_SCORE
-    hand.score -= 10
-    hand.ace_eleven = false
-  end
-
-  def update_score!(hand, card)
-    if card.chop == 'A'
-      score_ace!(hand)
-    else
-      hand.score += Deck::VALUES[card.chop]
-    end
-    rescore_ace!(hand)
   end
 
   def score
@@ -255,8 +256,8 @@ class Participant
     end
   end
 
-  def increment_match_points
-    @match_points += 1
+  def increment_points
+    @points += 1
   end
 
   def results_message(winner)
