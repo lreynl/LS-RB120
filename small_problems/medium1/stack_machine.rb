@@ -16,14 +16,13 @@ class Minilang
     @stack = []
   end
 
-####  start here
-  def eval(arg1, arg2=nil)
-    if arg2
-      @program = format(@program, arg1)
+  def eval(arg = nil)
+    if arg
+      program = format(@program, arg)
+      machine(program)
     else
-      @program = format(@program, {arg1, arg2})
+      machine(@program)
     end
-    machine(@program)
   end
 
   private
@@ -34,7 +33,7 @@ class Minilang
       until op_list.empty?
         op = op_list.shift
         unless valid?(op)
-          raise InvalidOpError, 'Error: invalid operation!'
+          raise InvalidOpError, "Error: invalid operation #{op}"
         end
         if op.class == Integer
           write_register(op)
@@ -104,7 +103,6 @@ class Minilang
   end
 end
 
-=begin
 Minilang.new('PRINT').eval
 # 0
 
@@ -139,7 +137,6 @@ Minilang.new('6 PUSH').eval
 # (nothing printed; no PRINT commands)
 
 Minilang.new('0 PUSH 5 DIV PUSH PRINT').eval
-=end
 
 CENTIGRADE_TO_FAHRENHEIT = '5 PUSH %<degrees_c>d PUSH 9 MULT DIV PUSH 32 ADD PRINT'
 minilang = Minilang.new(CENTIGRADE_TO_FAHRENHEIT)
@@ -150,4 +147,4 @@ minilang.eval(degrees_c: 100)
 
 AREA_OF_SQUARE = '%<side_1>d PUSH %<side_2>d MULT PRINT'
 minilang = Minilang.new(AREA_OF_SQUARE)
-minilang.eval(side_1: 5, side_2: 5)
+minilang.eval({side_1: 5, side_2: 5})
