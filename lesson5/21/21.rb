@@ -1,20 +1,17 @@
 require 'io/console'
 
-module Prompt
+module TerminalUtilities
   def prompt(text)
     print "> #{text}"
   end
-end
 
-module Clear
   def clear
     system 'clear' || 'cls'
   end
 end
 
 class TwentyOneGame
-  include Prompt
-  include Clear
+  include TerminalUtilities
 
   WINS_FOR_MATCH = 5
   MAX_SCORE = 21
@@ -74,11 +71,11 @@ class TwentyOneGame
   def play_cards
     @player.turn(@deck, @dealer)
     @dealer.turn(@deck, @player)
-    display_cards
+    display_all_cards
   end
 
   def analyze_results
-    result = round_score
+    result = round_result
     @dealer.check_perfect_score(@player)
     inc_points(result)
     @dealer.results_message(result)
@@ -112,7 +109,13 @@ class TwentyOneGame
     @player.display_cards
   end
 
-  def round_score
+  def display_all_cards
+    clear
+    @dealer.display_cards_plus_face_down
+    @player.display_cards
+  end
+
+  def round_result
     if @player.hand.score > MAX_SCORE
       :p_bust
     elsif @dealer.hand.score > MAX_SCORE
@@ -195,7 +198,7 @@ class Hand
 end
 
 class Participant
-  include Prompt
+  include TerminalUtilities
 
   HAND_SIZE = 2
   VALID_HIT_STAY = ['h', 'hit', 's', 'stay']
@@ -233,7 +236,7 @@ class Participant
     hit_stay = ''
     loop do
       prompt("Hit or stay (h/s)? ")
-      hit_stay = gets.chomp
+      hit_stay = gets.chomp.downcase
       break if VALID_HIT_STAY.include?(hit_stay)
       next if hit_stay.empty?
       prompt("Not a valid choice!\n")
@@ -299,7 +302,7 @@ class Participant
 end
 
 class Player < Participant
-  include Clear
+  include TerminalUtilities
 
   def turn(deck, dealer)
     until bust?
@@ -312,8 +315,8 @@ class Player < Participant
 
   def display_cards
     hand.cards.each_with_index do |card, index|
-      prompt("Player: #{card} ") if index == 0
-      print card + ' ' unless index == 0
+      prompt("Player: #{card} ") if index.zero?
+      print card + ' ' unless index.zero?
     end
     puts "\n\n"
   end
@@ -328,8 +331,16 @@ class Dealer < Participant
 
   def display_cards
     hand.cards.each_with_index do |card, index|
-      prompt('Dealer: Face-down card, ') if index == 0
-      print card + ' ' unless index == 0
+      prompt('Dealer: Face-down card, ') if index.zero?
+      print card + ' ' unless index.zero?
+    end
+    puts "\n\n"
+  end
+
+  def display_cards_plus_face_down
+    hand.cards.each_with_index do |card, index|
+      prompt("#{card} ") if index.zero?
+      print card + ' ' unless index.zero?
     end
     puts "\n\n"
   end
