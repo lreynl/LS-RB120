@@ -223,7 +223,7 @@ class Participant
 
   def hit?
     response = user_hit_stay
-    response.downcase == 'hit' || response.downcase == 'h'
+    %w(h hit).include?(response.downcase)
   end
 
   def hit_me!(deck)
