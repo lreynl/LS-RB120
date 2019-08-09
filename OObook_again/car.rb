@@ -42,8 +42,11 @@ class MyCar
   end
 
   def to_s
-    "Year: #{year}"  \
-    "Model #{model}" \
-    "Color #{color}"
+    "Year: #{year}\n"  \
+    "Model #{model}\n" \
+    "Color #{color}\n"
   end
 end
+
+car = MyCar.new("2019", 'white', 'Model 3')
+puts car
